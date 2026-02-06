@@ -1,0 +1,352 @@
+```html
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lesson plan tracker → Covered</title>
+<style>
+  :root{
+    --bg:#f7f6f4; --paper:#fdfcfb; --line:#e7e4df; --text:#2b2b2b;
+    --c-blue:#e7eef7; --c-turq:#e9f1ef; --c-green:#e8f3e6;
+    --c-yellow:#f2edd8; --c-apricot:#f7efe6; --c-pink:#f7e9ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{max-width:1100px;margin:24px auto;padding:16px}
+  h1{font-size:1.5rem;margin:.2rem 0 1rem}
+  .controls{display:flex;gap:8px;align-items:center;margin:.5rem 0 1rem;flex-wrap:wrap}
+  button{border:1px solid var(--line);background:var(--paper);padding:.5rem .75rem;border-radius:.6rem;cursor:pointer}
+  button:hover{border-color:#d7d4cf}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:800px){ .grid{grid-template-columns:1fr} }
+
+  .column{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:12px;min-height:320px;
+          display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 6px rgba(0,0,0,.04);}
+  .col-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+  .pill{font-size:.8rem;opacity:.8}
+  .muted{opacity:.7}
+
+  /* 2-column masonry-ish */
+  #todo.zone, #done.zone{ column-count:2; column-gap:12px; }
+  @media (max-width:900px){ #todo.zone, #done.zone{ column-count:1; } }
+
+  .zone{ padding-top:10px; min-height:220px; }
+  .zone.drag-over{ outline:2px dashed #a0a0a0; outline-offset:4px; background:#fafafa; }
+
+  .card{
+    display:block; border:1px solid rgba(0,0,0,.05); border-radius:12px; padding:10px 12px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04); cursor:grab;
+    break-inside:avoid; margin:0 0 10px;
+  }
+  .card:active{cursor:grabbing}
+
+  .card .title{
+    font-weight:700;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin:0 0 6px 0;
+  }
+  .card .meta{font-size:.85rem;opacity:.75;margin:0 0 8px 0}
+  .card ul{margin:0;padding-left:18px}
+  .card li{margin:2px 0}
+  .move{border:none;background:transparent;font-size:1.1rem;cursor:pointer;padding:2px 6px;border-radius:8px}
+  .move:hover{background:#f3f4f6}
+
+  .g1{background:var(--c-blue)}
+  .g2{background:var(--c-turq)}
+  .g3{background:var(--c-green)}
+  .g4{background:var(--c-yellow)}
+  .g5{background:var(--c-apricot)}
+  .g6{background:var(--c-pink)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Lesson tracker: move cards from “To cover” → “Covered”</h1>
+    <div class="controls">
+      <button id="reset">Reset</button>
+      <span class="pill muted">Tip: drag cards or use the » button</span>
+    </div>
+
+    <div class="grid">
+      <section class="column" aria-labelledby="todo-title">
+        <div class="col-head">
+          <h2 id="todo-title">To cover</h2>
+          <span class="pill">Drag to the right</span>
+        </div>
+        <div id="todo" class="zone" aria-dropeffect="move"></div>
+      </section>
+
+      <section class="column" aria-labelledby="done-title">
+        <div class="col-head">
+          <h2 id="done-title">Covered</h2>
+          <span class="pill muted">Done</span>
+        </div>
+        <div id="done" class="zone" aria-dropeffect="move"></div>
+      </section>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const todo = document.getElementById('todo');
+  const done = document.getElementById('done');
+  const resetBtn = document.getElementById('reset');
+  const LS_KEY = 'lesson-plan-demo-17-sept-v1';
+
+  // Cards (English content, grouped by "topic color")
+  const cards = [
+    {
+      id: "Card01", group: "g1",
+      title: "Demo – 17 September",
+      meta: "Context",
+      bullets: [
+        "Task 2 → Q&A + test",
+        "Applies to the rest of the spring"
+      ]
+    },
+    {
+      id: "Card02", group: "g1",
+      title: "Focus areas",
+      meta: "Scope",
+      bullets: [
+        "Advanced Excel",
+        "BI in Excel"
+      ]
+    },
+
+    {
+      id: "Card03", group: "g2",
+      title: "Structure & setup",
+      meta: "How the lesson is organized",
+      bullets: [
+        "Main sections → sub-sections",
+        "Video elements",
+        "Not Mac (Windows version of Excel)"
+      ]
+    },
+
+    {
+      id: "Card04", group: "g3",
+      title: "Excel versions & differences",
+      meta: "EU vs US",
+      bullets: [
+        "Comma vs dot",
+        "List separators (comma-separated values)",
+        "Short explanatory video"
+      ]
+    },
+
+    {
+      id: "Card05", group: "g3",
+      title: "Case / example data",
+      meta: "Dataset used in the demo",
+      bullets: [
+        "Approx. 1,500 products",
+        "Approx. 10,000 customers",
+        "Transaction data: ~200,000 rows",
+        "SKU / stock keeping unit fields"
+      ]
+    },
+
+    {
+      id: "Card06", group: "g4",
+      title: "Excel vs Excel BI",
+      meta: "Why we use the BI features",
+      bullets: [
+        "Classic Excel becomes inefficient with large datasets",
+        "Excel BI: Data View, transaction tables, data model"
+      ]
+    },
+
+    {
+      id: "Card07", group: "g4",
+      title: "Power Pivot",
+      meta: "From raw data to model",
+      bullets: [
+        "CSV → Excel document",
+        "Data → Data Model"
+      ]
+    },
+
+    {
+      id: "Card08", group: "g5",
+      title: "Data Model demo (new sheet)",
+      meta: "What to build",
+      bullets: [
+        "Power Pivot",
+        "Sales district",
+        "Total revenue",
+        "Filter: Year"
+      ]
+    },
+
+    {
+      id: "Card09", group: "g5",
+      title: "Excel BI vs Power BI",
+      meta: "Strengths & use cases",
+      bullets: [
+        "Power BI: graphical, interactive (show Power BI live)",
+        "Excel: convenient for copy–paste, quick calculations, nice-looking numbers",
+        "Conclusion: both are fantastic tools – different strengths"
+      ]
+    },
+
+    {
+      id: "Card10", group: "g6",
+      title: "Data model tools",
+      meta: "What students should know",
+      bullets: [
+        "Power Query (used to create the data model)",
+        "Power Pivot",
+        "DAX"
+      ]
+    },
+
+    {
+      id: "Card11", group: "g6",
+      title: "Power Query demos",
+      meta: "Hands-on steps",
+      bullets: [
+        "Calendar – add columns",
+        "Clean data"
+      ]
+    },
+
+    {
+      id: "Card12", group: "g2",
+      title: "Pre-check before lesson/demo",
+      meta: "Make sure the material works",
+      bullets: [
+        "Classic pivot – all data in one table",
+        "Classic pivot + VLOOKUP",
+        "Data model when data is stored in Excel",
+        "Data model using CSV files"
+      ]
+    }
+  ];
+
+  const groupOrder = ['g1','g2','g3','g4','g5','g6'];
+
+  function rankByGroup(cardId){
+    const c = cards.find(x => x.id === cardId);
+    const g = c ? c.group : 'g2';
+    return groupOrder.indexOf(g);
+  }
+
+  function makeCard(card){
+    const div = document.createElement('div');
+    div.className = `card ${card.group}`;
+    div.draggable = true;
+    div.id = card.id;
+
+    const bullets = (card.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('');
+    div.innerHTML = `
+      <div class="title">
+        <span>${escapeHtml(card.title)}</span>
+        <button class="move" title="Move">»</button>
+      </div>
+      ${card.meta ? `<p class="meta">${escapeHtml(card.meta)}</p>` : ``}
+      <ul>${bullets}</ul>
+    `;
+
+    div.querySelector('.move').addEventListener('click', () => {
+      const target = (div.parentElement.id === 'todo') ? done : todo;
+      target.appendChild(div);
+      if(target === todo) sortTodoDOM();
+      save();
+    });
+
+    div.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', div.id);
+      e.dataTransfer.effectAllowed='move';
+    });
+
+    return div;
+  }
+
+  function zoneEvents(zone){
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e=>{
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/plain');
+      const card = document.getElementById(id);
+      if(card) zone.appendChild(card);
+      zone.classList.remove('drag-over');
+      if(zone.id === 'todo') sortTodoDOM();
+      save();
+    });
+  }
+
+  function sortTodoDOM(){
+    const items = [...todo.querySelectorAll('.card')];
+    items.sort((a,b)=>{
+      const ra = rankByGroup(a.id), rb = rankByGroup(b.id);
+      if(ra !== rb) return ra - rb;
+      return a.id.localeCompare(b.id);
+    });
+    const frag = document.createDocumentFragment();
+    items.forEach(el => frag.appendChild(el));
+    todo.appendChild(frag);
+  }
+
+  function save(){
+    const data = {
+      todo:[...todo.querySelectorAll('.card')].map(c=>c.id),
+      done:[...done.querySelectorAll('.card')].map(c=>c.id)
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  }
+
+  function load(){
+    const s = localStorage.getItem(LS_KEY);
+    const todoIds = [], doneIds = [];
+
+    if(s){
+      try{
+        const d = JSON.parse(s);
+        if(d.todo) todoIds.push(...d.todo);
+        if(d.done) doneIds.push(...d.done);
+      }catch(_){}
+    }
+
+    // Add any missing cards to todo
+    const have = new Set([...todoIds, ...doneIds]);
+    for(const c of cards){
+      if(!have.has(c.id)) todoIds.push(c.id);
+    }
+
+    todo.innerHTML=''; done.innerHTML='';
+    for(const id of todoIds){
+      const c = cards.find(x=>x.id===id);
+      if(c) todo.appendChild(makeCard(c));
+    }
+    for(const id of doneIds){
+      const c = cards.find(x=>x.id===id);
+      if(c) done.appendChild(makeCard(c));
+    }
+    sortTodoDOM();
+    save();
+  }
+
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  zoneEvents(todo); zoneEvents(done);
+  resetBtn.addEventListener('click', ()=>{ localStorage.removeItem(LS_KEY); load(); });
+  load();
+})();
+</script>
+</body>
+</html>
+```
